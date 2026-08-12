@@ -73,6 +73,8 @@ def defaults() -> dict:
         },
         "loop": {
             "iterations": 0,           # 0 = run forever
+            "resume": False,           # resume interrupted runs from state.json
+            "max_report_len": 0,       # clip reports longer than this (0 = unlimited)
         },
         "verbose": True,
     }

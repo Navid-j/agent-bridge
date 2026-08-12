@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -13,6 +14,7 @@ REPORT_PATH = SESSION_DIR / "result_report.txt"
 TASK_PATH = SESSION_DIR / "next_task.txt"
 CONVERSATION_PATH = SESSION_DIR / "conversation_history.jsonl"
 REPORTS_DIR = SESSION_DIR / "reports"
+STATE_PATH = SESSION_DIR / "state.json"
 
 
 def ensure_session_dir() -> None:
@@ -78,3 +80,29 @@ def clear_history() -> None:
     ensure_session_dir()
     if CONVERSATION_PATH.exists():
         CONVERSATION_PATH.write_text("", encoding="utf-8")
+
+
+def is_done(text: str) -> bool:
+    """True when a manager reply unambiguously means "stop the pipeline"."""
+    clean = re.sub(r"[.!…\s]+$", "", text.strip()).upper()
+    return clean == "DONE"
+
+
+def save_state(payload: dict) -> None:
+    """Persist pipeline state (resume point) to ``sessions/state.json``."""
+    ensure_session_dir()
+    STATE_PATH.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def load_state() -> dict:
+    """Load the last pipeline state; empty dict when absent/invalid."""
+    ensure_session_dir()
+    if not STATE_PATH.exists():
+        return {}
+    try:
+        return json.loads(STATE_PATH.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}

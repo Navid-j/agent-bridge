@@ -27,7 +27,9 @@
     "timeout": 1800
   },
   "loop": {
-    "iterations": 0
+    "iterations": 0,
+    "resume": false,
+    "max_report_len": 0
   },
   "verbose": true
 }

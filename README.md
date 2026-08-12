@@ -185,6 +185,8 @@ sessions/
 | `--init` | Interactive wizard that builds `configs/config.json` for you |
 | `--project X --dry-run` | Show the config + pending task without invoking the worker |
 | `--git-check` | Append a `git status --short` / `git diff --stat` summary to each report |
+| `--resume` | Resume an interrupted run from `sessions/state.json` |
+| `--max-report-len N` | Clip reports longer than `N` chars (0 = unlimited) |
 | `--clear-history` | Reset the api-manager conversation history |
 
 Examples:
@@ -193,7 +195,12 @@ Examples:
 python -m src --init                                    # guided setup
 python -m src --project ./my-app --dry-run              # plan only, no agent run
 python -m src --project ./my-app --git-check            # reports include git impact
+python -m src --project ./my-app --resume               # continue after a crash
+python -m src --project ./my-app --max-report-len 8000  # keep reports short
 ```
+
+The pipeline recognises `DONE` (or `DONE.` / trailing text) from **any**
+manager — api, web, agent or manual — and stops cleanly.
 
 ## Architecture
 

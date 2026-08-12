@@ -16,14 +16,21 @@ injected, so any combination works.
 from __future__ import annotations
 
 import sys
+from datetime import datetime
 
 from .config import defaults, load_config
 from .managers import build_manager
-from .utils import append_history, clear_history, log, write_report
+from .utils import (
+    append_history,
+    clear_history,
+    is_done,
+    load_state,
+    log,
+    save_state,
+    write_report,
+)
 from .workers import build_worker
 from .workers.base import WorkerResult
-
-DONE_SENTINELS = {"DONE", "done", "DONE."}
 
 
 class Bridge:
@@ -35,16 +42,22 @@ class Bridge:
         self.manager = build_manager(config)
         self.verbose = config.get("verbose", True)
         self.iterations = int(config.get("loop", {}).get("iterations", 0))
+        self.max_report_len = int(config.get("loop", {}).get("max_report_len", 0) or 0)
+        self.resume = bool(config.get("loop", {}).get("resume", False))
 
-    def run_once(self, task: str) -> WorkerResult:
+    def run_once(self, task: str, index: int = 0) -> WorkerResult:
         """Run one task through worker, report to manager-side history."""
-        log(f"--- executing task ---", self.verbose)
+        log(f"--- executing task {index + 1} ---", self.verbose)
+        save_state({"phase": "running", "task": task, "index": index, "ts": datetime.now().isoformat()})
         result = self.worker.run(task)
         report = result.to_markdown()
         if self.config.get("git_check"):
             report = self._with_git_summary(report)
+        if self.max_report_len > 0 and len(report) > self.max_report_len:
+            report = self._clip_report(report)
         write_report(report)
         append_history("coder", report)
+        save_state({"phase": "idle", "task": task, "index": index, "ts": datetime.now().isoformat()})
         return result
 
     def _with_git_summary(self, report: str) -> str:
@@ -59,6 +72,12 @@ class Bridge:
             log(f"git check skipped: {exc}", self.verbose)
         return report
 
+    def _clip_report(self, report: str) -> str:
+        """Truncate an overly long report (--max-report-len)."""
+        kept, dropped = report[: self.max_report_len], len(report) - self.max_report_len
+        log(f"report clipped to {self.max_report_len} chars (dropped {dropped})", self.verbose)
+        return kept + f"\n\n_[truncated: {dropped} chars omitted]_"
+
     def loop(self, first_task: str | None = None) -> int:
         """Run the bridge until the manager says DONE or iterations run out.
 
@@ -70,21 +89,32 @@ class Bridge:
         * **Auto managers (api / web / agent)** — the loop continues
           in-process: the manager's reply becomes the next task until it
           returns ``DONE`` or the iteration limit is reached.
+
+        With ``loop.resume`` enabled, an interrupted run is picked up from
+        the task stored in ``sessions/state.json``.
         """
         from .managers.base import ManualManager
 
         count = 0
+        state = load_state()
+
+        # Resume support: if the last run died mid-task, redo that task.
+        if self.resume and state.get("phase") == "running":
+            first_task = state.get("task")
+            count = int(state.get("index", 0))
+            log(f"resuming interrupted task #{count + 1}", self.verbose)
+
         task = first_task if first_task is not None else self.manager.get_next_task("")
         report = None
 
         while True:
             if task is None:
                 task = self.manager.get_next_task("")
-            if task.strip() in DONE_SENTINELS:
+            if is_done(task):
                 log("manager said DONE; stopping", self.verbose)
                 break
 
-            result = self.run_once(task)
+            result = self.run_once(task, index=count)
             if result.exit_code != 0:
                 log(f"worker FAILED (exit {result.exit_code}); passing to manager", self.verbose)
             count += 1
@@ -99,6 +129,9 @@ class Bridge:
 
             next_task = self.manager.get_next_task(result.to_markdown())
             append_history("manager", next_task)
+            if is_done(next_task):
+                log("manager said DONE; stopping", self.verbose)
+                break
             if self.iterations and count >= self.iterations:
                 log(f"reached iteration limit ({self.iterations})", self.verbose)
                 break

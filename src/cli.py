@@ -43,6 +43,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--git-check", action="store_true",
         help="append a git status/diff summary to each result report",
     )
+    parser.add_argument(
+        "--resume", action="store_true",
+        help="resume an interrupted run from sessions/state.json",
+    )
+    parser.add_argument(
+        "--max-report-len", type=int, default=None,
+        help="clip reports longer than this many chars (0 = unlimited)",
+    )
     return parser.parse_args(argv)
 
 
@@ -74,6 +82,10 @@ def main(argv: list[str] | None = None) -> int:
         config.setdefault("loop", {})["iterations"] = 1
     if args.git_check:
         config["git_check"] = True
+    if args.resume:
+        config.setdefault("loop", {})["resume"] = True
+    if args.max_report_len is not None:
+        config.setdefault("loop", {})["max_report_len"] = args.max_report_len
     if args.clear_history and config["manager"]["type"] == "api":
         clear_history()
         log("conversation history cleared", config.get("verbose", True))
