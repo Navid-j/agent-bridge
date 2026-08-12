@@ -105,6 +105,7 @@ class Bridge:
         from .managers.base import ManualManager
 
         count = 0
+        failed = 0
         state = load_state()
 
         # Resume support: if the last run died mid-task, redo that task.
@@ -125,6 +126,7 @@ class Bridge:
 
             result = self.run_once(task, index=count)
             if result.exit_code != 0:
+                failed += 1
                 log(f"worker FAILED (exit {result.exit_code}); passing to manager", self.verbose)
             count += 1
 
@@ -147,7 +149,25 @@ class Bridge:
             task = next_task
 
         log(f"pipeline finished after {count} task(s)", self.verbose)
+        self._print_summary(count, failed)
         return 0
+
+    def _print_summary(self, total: int, failed: int) -> None:
+        """Print a final human-readable session summary."""
+        if not self.verbose:
+            return
+        ok = total - failed
+        line = "═" * 44
+        print(f"\n{line}")
+        print(f"  agent-bridge session complete")
+        print(f"{line}")
+        print(f"  tasks run     : {total}")
+        print(f"  succeeded     : {ok}  ✅")
+        if failed:
+            print(f"  failed        : {failed}  ❌")
+        if total:
+            print(f"  success rate  : {ok / total:.0%}")
+        print(f"{line}")
 
     def close(self) -> None:
         close = getattr(self.manager, "close", None)
