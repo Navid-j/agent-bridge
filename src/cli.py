@@ -51,6 +51,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--max-report-len", type=int, default=None,
         help="clip reports longer than this many chars (0 = unlimited)",
     )
+    parser.add_argument(
+        "--tag", default=None,
+        help="session tag; archived reports become <tag>_report_<ts>.md",
+    )
     return parser.parse_args(argv)
 
 
@@ -86,6 +90,8 @@ def main(argv: list[str] | None = None) -> int:
         config.setdefault("loop", {})["resume"] = True
     if args.max_report_len is not None:
         config.setdefault("loop", {})["max_report_len"] = args.max_report_len
+    if args.tag:
+        config["tag"] = args.tag
     if args.clear_history and config["manager"]["type"] == "api":
         clear_history()
         log("conversation history cleared", config.get("verbose", True))

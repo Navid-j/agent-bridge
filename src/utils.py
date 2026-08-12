@@ -26,16 +26,20 @@ def log(msg: str, verbose: bool = True) -> None:
         print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
-def write_report(text: str) -> Path:
-    """Write the latest report and also a timestamped copy under ``sessions/reports/``.
+def write_report(text: str, tag: str = "") -> Path:
+    """Write the latest report and also a tagged/timestamped copy under
+    ``sessions/reports/``.
 
-    Returns the timestamped report path.
+    When ``tag`` is given, the archived filename becomes
+    ``<tag>_<timestamp>.md`` so a session's reports group together.
+    Returns the archived report path.
     """
     ensure_session_dir()
     REPORT_PATH.write_text(text, encoding="utf-8")
     REPORTS_DIR.mkdir(exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    timed_path = REPORTS_DIR / f"report_{stamp}.md"
+    label = f"{tag}_" if tag else ""
+    timed_path = REPORTS_DIR / f"{label}report_{stamp}.md"
     timed_path.write_text(text, encoding="utf-8")
     return timed_path
 

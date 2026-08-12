@@ -46,6 +46,7 @@ class Bridge:
         self.iterations = int(config.get("loop", {}).get("iterations", 0))
         self.max_report_len = int(config.get("loop", {}).get("max_report_len", 0) or 0)
         self.resume = bool(config.get("loop", {}).get("resume", False))
+        self.tag = str(config.get("tag", "") or "")
 
     def run_once(self, task: str, index: int = 0) -> WorkerResult:
         """Run one task through worker, report to manager-side history."""
@@ -65,7 +66,7 @@ class Bridge:
         )
         if self.max_report_len > 0 and len(report) > self.max_report_len:
             report = self._clip_report(report)
-        write_report(report)
+        write_report(report, tag=self.tag)
         append_history("coder", report)
         save_state({"phase": "idle", "task": task, "index": index, "ts": datetime.now().isoformat()})
         return result
