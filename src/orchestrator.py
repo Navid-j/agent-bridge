@@ -41,9 +41,23 @@ class Bridge:
         log(f"--- executing task ---", self.verbose)
         result = self.worker.run(task)
         report = result.to_markdown()
+        if self.config.get("git_check"):
+            report = self._with_git_summary(report)
         write_report(report)
         append_history("coder", report)
         return result
+
+    def _with_git_summary(self, report: str) -> str:
+        """Append a git status/diff summary to the report (read-only)."""
+        try:
+            from .git_check import git_summary
+
+            summary = git_summary(self.config.get("project_path", ""))
+            if summary:
+                return report.rstrip() + "\n\n---\n\n" + summary + "\n"
+        except Exception as exc:  # never break the pipeline for git issues
+            log(f"git check skipped: {exc}", self.verbose)
+        return report
 
     def loop(self, first_task: str | None = None) -> int:
         """Run the bridge until the manager says DONE or iterations run out.

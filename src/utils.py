@@ -12,6 +12,7 @@ SESSION_DIR = ROOT / "sessions"
 REPORT_PATH = SESSION_DIR / "result_report.txt"
 TASK_PATH = SESSION_DIR / "next_task.txt"
 CONVERSATION_PATH = SESSION_DIR / "conversation_history.jsonl"
+REPORTS_DIR = SESSION_DIR / "reports"
 
 
 def ensure_session_dir() -> None:
@@ -23,9 +24,18 @@ def log(msg: str, verbose: bool = True) -> None:
         print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
-def write_report(text: str) -> None:
+def write_report(text: str) -> Path:
+    """Write the latest report and also a timestamped copy under ``sessions/reports/``.
+
+    Returns the timestamped report path.
+    """
     ensure_session_dir()
     REPORT_PATH.write_text(text, encoding="utf-8")
+    REPORTS_DIR.mkdir(exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timed_path = REPORTS_DIR / f"report_{stamp}.md"
+    timed_path.write_text(text, encoding="utf-8")
+    return timed_path
 
 
 def write_task(text: str) -> None:

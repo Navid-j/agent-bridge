@@ -172,9 +172,27 @@ Full example: [`configs/config.example.json`](configs/config.example.json)
 sessions/
   next_task.txt            ← the pending task (manual mode)
   result_report.txt        ← latest report for the manager
+  reports/report_<ts>.md   ← timestamped report archive (*new*)
   conversation_history.jsonl  ← rolling context for api manager
   opencode_run_<code>.txt  ← raw worker transcripts
   browser_profile/         ← persisted login for web mode
+```
+
+## CLI extras
+
+| Command | What it does |
+| --- | --- |
+| `--init` | Interactive wizard that builds `configs/config.json` for you |
+| `--project X --dry-run` | Show the config + pending task without invoking the worker |
+| `--git-check` | Append a `git status --short` / `git diff --stat` summary to each report |
+| `--clear-history` | Reset the api-manager conversation history |
+
+Examples:
+
+```bash
+python -m src --init                                    # guided setup
+python -m src --project ./my-app --dry-run              # plan only, no agent run
+python -m src --project ./my-app --git-check            # reports include git impact
 ```
 
 ## Architecture
@@ -184,6 +202,8 @@ src/
   cli.py                CLI + config overrides
   config.py             config loading, ${ENV} expansion
   orchestrator.py       the loop (Bridge)
+  init_wizard.py        interactive --init setup (*new*)
+  git_check.py          read-only git status/diff for reports (*new*)
   utils.py              session files + history
   managers/
     base.py             Manager protocol
@@ -217,10 +237,12 @@ Then register it in `managers/__init__.py` / `workers/__init__.py`.
 
 ## Roadmap
 
-- [ ] `run.py` console entry point (no `-m src`)
+- [x] Interactive `--init` wizard
+- [x] `--dry-run` planning mode
+- [x] `--git-check` report enrichment
+- [x] Timestamped report archive in `sessions/reports/`
 - [ ] Persist sessions per-project in `~/.agent-bridge/`
-- [ ] Optional `--git-check` to verify worker results with git
-- [ ] Guided `--init` wizard
+- [ ] `run.py` console entry point (no `-m src`)
 - [ ] Test suite (pytest) for managers/workers
 
 ## License

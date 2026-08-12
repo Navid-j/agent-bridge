@@ -5,9 +5,10 @@ from __future__ import annotations
 import argparse
 import sys
 
-from .config import load_config
+from .config import defaults, load_config
 from .orchestrator import Bridge
 from .utils import clear_history, log
+from .workers.base import WorkerResult
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -30,11 +31,29 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--once", action="store_true", help="run exactly one task")
     parser.add_argument("--clear-history", action="store_true", help="reset the conversation history first")
     parser.add_argument("--headless", action="store_true", help="web mode: run the browser headless")
+    parser.add_argument(
+        "--init", action="store_true",
+        help="run the interactive setup wizard and exit",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="simulate one pipeline step without invoking the worker",
+    )
+    parser.add_argument(
+        "--git-check", action="store_true",
+        help="append a git status/diff summary to each result report",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+
+    if args.init:
+        from .init_wizard import run_wizard
+
+        return run_wizard()
+
     config = load_config(args.config)
 
     if args.project:
@@ -53,18 +72,43 @@ def main(argv: list[str] | None = None) -> int:
         config.setdefault("loop", {})["iterations"] = args.iterations
     if args.once:
         config.setdefault("loop", {})["iterations"] = 1
+    if args.git_check:
+        config["git_check"] = True
     if args.clear_history and config["manager"]["type"] == "api":
         clear_history()
         log("conversation history cleared", config.get("verbose", True))
 
     bridge = Bridge(config)
     try:
+        if args.dry_run:
+            return _dry_run(config, bridge)
         return bridge.loop()
     except KeyboardInterrupt:
         log("interrupted by user", True)
         return 130
     finally:
         bridge.close()
+
+
+def _dry_run(config: dict, bridge: Bridge) -> int:
+    """Simulate one pipeline step: read the task, show the plan, no run."""
+    from .utils import read_task
+
+    try:
+        task = read_task()
+    except (FileNotFoundError, ValueError) as exc:
+        log(f"ERROR: {exc}. Put the first task into sessions/next_task.txt", True)
+        return 1
+
+    print("\n=== DRY RUN ===")
+    print(f"project      : {config.get('project_path')}")
+    print(f"manager      : {config['manager']['type']}")
+    print(f"worker       : {config['worker']['type']} -> {config['worker'].get('binary', '?')}")
+    print(f"iterations   : {config.get('loop', {}).get('iterations', 0)}")
+    print("task         :")
+    print(task[:1000])
+    print("\n(no worker invoked)")
+    return 0
 
 
 if __name__ == "__main__":
