@@ -16,10 +16,12 @@ injected, so any combination works.
 from __future__ import annotations
 
 import sys
+import time
 from datetime import datetime
 
 from .config import defaults, load_config
 from .managers import build_manager
+from .report import build_report
 from .utils import (
     append_history,
     clear_history,
@@ -49,10 +51,18 @@ class Bridge:
         """Run one task through worker, report to manager-side history."""
         log(f"--- executing task {index + 1} ---", self.verbose)
         save_state({"phase": "running", "task": task, "index": index, "ts": datetime.now().isoformat()})
+        started = time.monotonic()
         result = self.worker.run(task)
-        report = result.to_markdown()
+        elapsed = time.monotonic() - started
+
+        status = "ok" if result.exit_code == 0 else f"FAILED (exit {result.exit_code})"
+        extra: list[str] = []
         if self.config.get("git_check"):
-            report = self._with_git_summary(report)
+            extra.append(self._git_summary())
+        report = build_report(
+            task=task, status=status, summary=result.summary,
+            elapsed_s=elapsed, extra_blocks=extra,
+        )
         if self.max_report_len > 0 and len(report) > self.max_report_len:
             report = self._clip_report(report)
         write_report(report)
@@ -60,17 +70,15 @@ class Bridge:
         save_state({"phase": "idle", "task": task, "index": index, "ts": datetime.now().isoformat()})
         return result
 
-    def _with_git_summary(self, report: str) -> str:
-        """Append a git status/diff summary to the report (read-only)."""
+    def _git_summary(self) -> str:
+        """Read-only git status/diff summary; empty string on any failure."""
         try:
             from .git_check import git_summary
 
-            summary = git_summary(self.config.get("project_path", ""))
-            if summary:
-                return report.rstrip() + "\n\n---\n\n" + summary + "\n"
-        except Exception as exc:  # never break the pipeline for git issues
+            return git_summary(self.config.get("project_path", ""))
+        except Exception as exc:
             log(f"git check skipped: {exc}", self.verbose)
-        return report
+            return ""
 
     def _clip_report(self, report: str) -> str:
         """Truncate an overly long report (--max-report-len)."""
