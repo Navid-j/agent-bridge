@@ -1,0 +1,33 @@
+{
+  "project_path": "",
+  "manager": {
+    "type": "manual",
+    "system_prompt": "You are the technical task manager for an autonomous coding pipeline. You receive the coding agent's result report and must reply with ONLY the next concrete task. If the project is finished, reply exactly: DONE",
+    "api": {
+      "base_url": "https://api.openai.com/v1",
+      "api_key": "${OPENAI_API_KEY}",
+      "model": "gpt-4o",
+      "temperature": 0.7,
+      "max_tokens": 1024
+    },
+    "web": {
+      "url": "https://chatgpt.com/",
+      "headless": false
+    },
+    "agent": {
+      "binary": "opencode",
+      "args": ["run", "--format", "json"]
+    }
+  },
+  "worker": {
+    "type": "opencode",
+    "binary": "opencode",
+    "model": "",
+    "extra_args": [],
+    "timeout": 1800
+  },
+  "loop": {
+    "iterations": 0
+  },
+  "verbose": true
+}

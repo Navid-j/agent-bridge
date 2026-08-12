@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-bridge"
+version = "0.2.0"
+description = "Glue between a task manager and a coding agent — fully automated."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "navid" }]
+keywords = ["ai", "agents", "orchestrator", "chatgpt", "opencode", "automation"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = []
+
+[project.optional-dependencies]
+web = ["playwright>=1.40"]
+
+[tool.setuptools.packages.find]
+include = ["src*"]
