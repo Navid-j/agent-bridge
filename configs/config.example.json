@@ -12,7 +12,9 @@
     },
     "web": {
       "url": "https://chatgpt.com/",
-      "headless": false
+      "headless": false,
+      "site": "auto",
+      "selectors": {}
     },
     "agent": {
       "binary": "opencode",

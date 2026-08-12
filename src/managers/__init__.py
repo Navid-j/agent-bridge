@@ -29,10 +29,12 @@ def build_manager(config: dict) -> Manager:
         )
     if mtype == "web":
         web = m["web"]
-        log(f"manager: web ({web.get('url', 'chatgpt.com')})")
+        log(f"manager: web (site={web.get('site', 'auto')})")
         return WebManager(
             url=web.get("url"),
             headless=web.get("headless", False),
+            site=web.get("site", "auto"),
+            selectors=web.get("selectors"),
             verbose=config.get("verbose", True),
         )
     if mtype == "agent":

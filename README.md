@@ -39,7 +39,7 @@ You can plug in whatever you have:
 
 | You have…                      | Use manager type | Fully automatic?        |
 | ------------------------------ | ---------------- | ----------------------- |
-| A ChatGPT **website** account  | `web`            | ✅ (browser automation) |
+| A **chat website** account (ChatGPT, DeepSeek…) | `web` | ✅ (browser automation) |
 | An **API key** (OpenAI/DeepSeek/OpenRouter/Ollama…) | `api` | ✅ |
 | Another **agent CLI** | `agent` | ✅ (agent↔agent) |
 | Nothing — just a text file     | `manual`         | 🟡 (paste report/next task) |
@@ -160,12 +160,16 @@ Full example: [`configs/config.example.json`](configs/config.example.json)
 - **`api`** — any OpenAI-compatible chat API. Works with OpenAI, DeepSeek,
   OpenRouter, Ollama, local model servers… Keeps a rolling conversation
   history in `sessions/conversation_history.jsonl`.
-- **`web`** — drives a chat website (ChatGPT by default) with Playwright.
+- **`web`** — drives a chat website with Playwright. Ships presets for
+  **ChatGPT** and **DeepSeek** (`manager.web.site = auto | chatgpt | deepseek`).
   One-time login, then fully automatic:
   ```bash
   pip install playwright && playwright install chromium
-  python -m src --project . --manager web --iterations 20
+  python -m src --project . --manager web --iterations 20          # ChatGPT
+  python -m src --project . --manager web --iterations 20          # set site in config
   ```
+  If a site's UI changes, override the selectors in
+  `manager.web.selectors` — no code changes needed.
 - **`agent`** — a second CLI agent is the manager. True agent↔agent, no
   vendored LLM in the loop:
   ```bash
@@ -231,7 +235,7 @@ src/
     base.py             Manager protocol
     manual.py           file-based
     api.py              OpenAI-compatible API
-    web.py              Playwright browser automation
+    web.py              Playwright browser automation (ChatGPT/DeepSeek presets)
     agent.py            another agent's CLI
   workers/
     base.py             Worker protocol + WorkerResult

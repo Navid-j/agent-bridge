@@ -19,13 +19,41 @@ directly into `manager.api.api_key`.
 
 ```bash
 pip install playwright && playwright install chromium   # one time
-cp examples/web-manager.example.json configs/config.json
+cp examples/web-manager.example.json configs/config.json   # ChatGPT
 python -m src
 ```
 
-First run: a browser opens; log into chatgpt.com once — the login is kept
+First run: a browser opens; log into the site once — the login is kept
 in `sessions/browser_profile/` and reused on later runs. The whole loop is
 then automatic.
+
+### Web manager with DeepSeek (chat.deepseek.com)
+
+```bash
+cp examples/web-deepseek.example.json configs/config.json   # DeepSeek
+python -m src
+```
+
+Same workflow, different site. Set `manager.web.site` to `chatgpt`,
+`deepseek`, or `auto` (detected from the URL). If a site changes its UI,
+you can override selectors without touching code:
+
+```json
+{
+  "manager": {
+    "type": "web",
+    "web": {
+      "url": "https://chat.deepseek.com/",
+      "site": "deepseek",
+      "selectors": {
+        "inputs": ["textarea#chat-input", "textarea[placeholder]"],
+        "responses": [".ds-markdown", "[data-bot-message]"],
+        "new_thread_labels": ["New conversation", "新对话"]
+      }
+    }
+  }
+}
+```
 
 ## 3. Agent manager — agent-to-agent, no human and no vendor
 

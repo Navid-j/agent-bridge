@@ -3,9 +3,9 @@
   "manager": {
     "type": "web",
     "web": {
-      "url": "https://chatgpt.com/",
+      "url": "https://chat.deepseek.com/",
       "headless": false,
-      "site": "chatgpt",
+      "site": "deepseek",
       "selectors": {}
     }
   },

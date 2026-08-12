@@ -58,6 +58,8 @@ def defaults() -> dict:
             "web": {
                 "url": "https://chatgpt.com/",
                 "headless": False,
+                "site": "auto",          # auto | chatgpt | deepseek
+                "selectors": {},         # optional override, e.g. {"inputs": [...]}
             },
             "agent": {
                 "binary": "opencode",
