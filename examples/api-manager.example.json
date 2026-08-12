@@ -1,0 +1,25 @@
+{
+  "project_path": "/path/to/your/project",
+  "manager": {
+    "type": "api",
+    "api": {
+      "base_url": "https://api.openai.com/v1",
+      "api_key": "${OPENAI_API_KEY}",
+      "model": "gpt-4o",
+      "temperature": 0.7,
+      "max_tokens": 1024
+    }
+  },
+  "worker": {
+    "type": "opencode",
+    "binary": "opencode",
+    "model": "opencode/deepseek-v4-flash-free",
+    "extra_args": [],
+    "timeout": 1800
+  },
+  "loop": {
+    "iterations": 10,
+    "resume": true
+  },
+  "verbose": true
+}

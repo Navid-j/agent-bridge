@@ -80,6 +80,21 @@ cd agent-bridge
 cp configs/config.example.json configs/config.json
 ```
 
+Pick a ready-made setup from [`examples/`](examples/README.md) — API key,
+website, agent-to-agent, or manual:
+
+```bash
+cp examples/api-manager.example.json configs/config.json   # API key
+cp examples/web-manager.example.json configs/config.json   # website only
+cp examples/agent-manager.example.json configs/config.json # agent↔agent
+```
+
+Or run the interactive wizard:
+
+```bash
+python -m src --init
+```
+
 Put your project path in `configs/config.json` and pick `manager.type` /
 `worker.type`. Secrets can be referenced as env vars thanks to `${VAR}`
 expansion:

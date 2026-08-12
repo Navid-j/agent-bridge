@@ -1,0 +1,22 @@
+{
+  "project_path": "/path/to/your/project",
+  "manager": {
+    "type": "web",
+    "web": {
+      "url": "https://chatgpt.com/",
+      "headless": false
+    }
+  },
+  "worker": {
+    "type": "opencode",
+    "binary": "opencode",
+    "model": "",
+    "extra_args": [],
+    "timeout": 1800
+  },
+  "loop": {
+    "iterations": 20,
+    "resume": true
+  },
+  "verbose": true
+}

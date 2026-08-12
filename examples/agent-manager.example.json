@@ -1,0 +1,22 @@
+{
+  "project_path": "/path/to/your/project",
+  "manager": {
+    "type": "agent",
+    "agent": {
+      "binary": "opencode",
+      "args": ["run", "--format", "json"]
+    }
+  },
+  "worker": {
+    "type": "opencode",
+    "binary": "opencode",
+    "model": "",
+    "extra_args": [],
+    "timeout": 1800
+  },
+  "loop": {
+    "iterations": 5,
+    "resume": true
+  },
+  "verbose": true
+}
