@@ -8,7 +8,9 @@ project is set once at startup via ``set_active_project``.
 from __future__ import annotations
 
 import json
+import os
 import re
+import shutil
 from datetime import datetime
 from pathlib import Path
 
@@ -26,6 +28,21 @@ def set_active_project(name: str) -> None:
 
 def active_project() -> str:
     return _ACTIVE_PROJECT
+
+
+def command_prefix(binary: str) -> list[str]:
+    """Resolve a CLI binary to an argv prefix subprocess can actually start.
+
+    On Windows, npm installs shims as ``.cmd``/``.bat`` files, which
+    ``subprocess`` cannot launch directly (CreateProcess needs an .exe), so
+    they are invoked through ``cmd /c`` instead.
+    """
+    path = shutil.which(binary)
+    if path is None:
+        return [binary]
+    if os.name == "nt" and path.lower().endswith((".cmd", ".bat")):
+        return ["cmd", "/c", path]
+    return [path]
 
 
 def slugify(text: str) -> str:

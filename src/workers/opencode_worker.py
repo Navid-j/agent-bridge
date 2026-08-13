@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import subprocess
 
-from ..utils import ensure_session_dir, log
+from ..utils import command_prefix, ensure_session_dir, log
 from .base import Worker, WorkerResult
 
 
@@ -33,7 +33,9 @@ class OpenCodeWorker(Worker):
         self.verbose = verbose
 
     def run(self, task: str) -> WorkerResult:
-        cmd = [self.binary, "run", "--format", "json", "--dir", self.project_path, "--print-logs"]
+        cmd = command_prefix(self.binary) + [
+            "run", "--format", "json", "--dir", self.project_path, "--print-logs",
+        ]
         if self.model:
             cmd += ["--model", self.model]
         cmd += self.extra_args

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import subprocess
 
-from ..utils import ensure_session_dir, log
+from ..utils import command_prefix, ensure_session_dir, log
 from .base import Worker, WorkerResult
 
 
@@ -30,7 +30,7 @@ class GenericWorker(Worker):
         self.verbose = verbose
 
     def run(self, task: str) -> WorkerResult:
-        cmd = [self.binary] + self.args + [task]
+        cmd = command_prefix(self.binary) + self.args + [task]
         log(f"worker (generic: {self.binary}) starting", self.verbose)
         proc = subprocess.run(
             cmd, cwd=self.cwd or None, capture_output=True, text=True,

@@ -108,7 +108,7 @@ class WebManager(Manager):
         )
         self._page = context.pages[0] if context.pages else context.new_page()
         log(f"opening {self.url} (preset: {self.preset_name})", self.verbose)
-        self._page.goto(self.url, wait_until="networkidle")
+        self._page.goto(self.url, wait_until="domcontentloaded", timeout=120_000)
         log("waiting for the chat input…", self.verbose)
         self._first(self._inputs, timeout=90_000)
         log("chat ready", self.verbose)

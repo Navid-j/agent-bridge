@@ -10,6 +10,7 @@ from __future__ import annotations
 import subprocess
 
 from ..config import defaults
+from ..utils import command_prefix
 from .base import Manager
 
 
@@ -23,7 +24,7 @@ class AgentManager(Manager):
         self.model = model
 
     def get_next_task(self, report: str) -> str:
-        cmd = [self.binary]
+        cmd = command_prefix(self.binary)
         if self.model:
             cmd += ["--model", self.model]
         cmd += self.args + [report]
