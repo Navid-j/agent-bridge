@@ -24,7 +24,7 @@ class Manager(ABC):
 
 
 class ManualManager(Manager):
-    """Task source is the ``sessions/next_task.txt`` file.
+    """Task source is the ``sessions/<project>/next_task.txt`` file.
 
     The user pastes ChatGPT's reply (or any manager output) into the file;
     the bridge does everything else.

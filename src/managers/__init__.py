@@ -14,7 +14,7 @@ def build_manager(config: dict) -> Manager:
     m = config["manager"]
     mtype = m["type"]
     if mtype == "manual":
-        log("manager: manual (sessions/next_task.txt)")
+        log("manager: manual (sessions/<project>/next_task.txt)")
         return ManualManager()
     if mtype == "api":
         api = m["api"]

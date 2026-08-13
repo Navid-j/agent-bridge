@@ -1,8 +1,9 @@
 """API manager — task decisions from any OpenAI-compatible chat API.
 
 Works with OpenAI, DeepSeek, OpenRouter, Ollama, local LLMs, etc. It keeps
-a rolling conversation history (from ``sessions/conversation_history.jsonl``)
-so the manager has context across tasks, just like a human would.
+a rolling conversation history (from
+``sessions/<project>/conversation_history.jsonl``) so the manager has
+context across tasks, just like a human would.
 """
 
 from __future__ import annotations

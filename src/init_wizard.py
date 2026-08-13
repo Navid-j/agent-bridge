@@ -1,11 +1,17 @@
-"""Interactive setup wizard — build a config without editing JSON by hand."""
+"""Interactive setup wizard — build/edit a multi-project config without
+editing JSON by hand.
+
+Each run of ``--init`` creates (or extends) ``configs/config.json`` with one
+project. You can re-run the wizard with a different project name to add more.
+"""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-from .config import defaults
+from .config import defaults, list_projects
+from .utils import slugify
 
 CONFIG_TARGET = Path(__file__).resolve().parents[1] / "configs" / "config.json"
 
@@ -32,11 +38,9 @@ def _choose(prompt: str, options: list[str], default: str) -> str:
         print("invalid choice, try again.")
 
 
-def run_wizard() -> int:
-    """Run the interactive wizard and write ``configs/config.json``."""
+def _project_config() -> dict:
+    """Gather the interactive answers into one project's config."""
     cfg = defaults()
-
-    print("=== agent-bridge setup ===\n")
 
     project = _ask("target project path")
     if project:
@@ -79,9 +83,43 @@ def run_wizard() -> int:
     iterations = _ask("max iterations (0 = run until DONE)", "0")
     cfg["loop"]["iterations"] = int(iterations)
 
+    return cfg
+
+
+def run_wizard() -> int:
+    """Run the interactive wizard and update ``configs/config.json``."""
+    print("=== agent-bridge setup ===\n")
+
+    projects = list_projects(CONFIG_TARGET)
+    existing = sorted(projects)
+    if existing:
+        print(f"already configured projects: {', '.join(existing)}")
+
+    name = _ask("project name", existing[0] if len(existing) == 1 else "")
+    if not name:
+        name = input("project name: ").strip() or "default"
+    name = slugify(name)
+
+    print(f"\n--- configuring project: {name} ---")
+    project = _project_config()
+    project.pop("project_name", None)
+
     CONFIG_TARGET.parent.mkdir(exist_ok=True)
+    if CONFIG_TARGET.exists():
+        data = json.loads(CONFIG_TARGET.read_text(encoding="utf-8"))
+    else:
+        data = {"active_project": name, "projects": {}}
+
+    projects_map = data.setdefault("projects", {})
+    projects_map[name] = project
+    data["active_project"] = name
+    # normalize any legacy flat config into the projects format
+    for key in ("project_path", "manager", "worker", "loop"):
+        data.pop(key, None)
+
     CONFIG_TARGET.write_text(
-        json.dumps(cfg, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
     print(f"\nConfig written to {CONFIG_TARGET}")
+    print(f"Run: python -m src {name}")
     return 0

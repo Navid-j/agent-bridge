@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import subprocess
 
-from ..utils import SESSION_DIR, log
+from ..utils import ensure_session_dir, log
 from .base import Worker, WorkerResult
 
 
@@ -37,8 +37,8 @@ class GenericWorker(Worker):
             encoding="utf-8", errors="replace", timeout=self.timeout,
         )
         transcript = (proc.stdout or "") + "\n----- STDERR -----\n" + (proc.stderr or "")
-        SESSION_DIR.mkdir(exist_ok=True)
-        (SESSION_DIR / f"worker_run_{proc.returncode}.txt").write_text(transcript, encoding="utf-8")
+        d = ensure_session_dir()
+        (d / f"worker_run_{proc.returncode}.txt").write_text(transcript, encoding="utf-8")
         return WorkerResult(
             exit_code=proc.returncode,
             summary=(transcript.strip() or "no output")[:4000],

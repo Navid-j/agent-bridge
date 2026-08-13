@@ -5,9 +5,9 @@ from __future__ import annotations
 import argparse
 import sys
 
-from .config import defaults, load_config
+from .config import defaults, list_projects, load_config
 from .orchestrator import Bridge
-from .utils import clear_history, log
+from .utils import clear_history, log, set_active_project
 from .workers.base import WorkerResult
 
 
@@ -17,8 +17,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description="Glue between a task manager (ChatGPT/API/another agent) "
                     "and a coding agent (opencode/any CLI).",
     )
+    parser.add_argument(
+        "name", nargs="?", default=None,
+        help="name of a project defined in the config (selects its manager/worker/loop)",
+    )
     parser.add_argument("--config", default=None, help="path to a JSON config file")
     parser.add_argument("--project", default=None, help="target project directory (overrides config)")
+    parser.add_argument(
+        "--list-projects", action="store_true",
+        help="list the projects defined in the config and exit",
+    )
     parser.add_argument(
         "--manager", choices=["manual", "api", "web", "agent"], default=None,
         help="manager type (overrides config)",
@@ -45,7 +53,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--resume", action="store_true",
-        help="resume an interrupted run from sessions/state.json",
+        help="resume an interrupted run from sessions/<project>/state.json",
     )
     parser.add_argument(
         "--max-report-len", type=int, default=None,
@@ -58,20 +66,43 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _init_console() -> None:
+    """Let the console print any script/UTF-8 text without crashing."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    _init_console()
 
     if args.init:
         from .init_wizard import run_wizard
 
         return run_wizard()
 
-    config = load_config(args.config)
+    if args.list_projects:
+        names = list_projects(args.config)
+        if not names:
+            log("no 'projects' section found in the config.", True)
+            return 1
+        print("\n".join(names))
+        return 0
+
+    config = load_config(args.config, project_name=args.name)
+    set_active_project(config["project_name"])
 
     if args.project:
         config["project_path"] = args.project
     if not config.get("project_path"):
-        log("ERROR: no project path. Pass --project or set project_path in the config.", True)
+        log(
+            "ERROR: no project path. Pass --project or set project_path "
+            "for the selected project.",
+            True,
+        )
         return 2
 
     if args.manager:
@@ -93,7 +124,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.tag:
         config["tag"] = args.tag
     if args.clear_history and config["manager"]["type"] == "api":
-        clear_history()
+        clear_history(config["project_name"])
         log("conversation history cleared", config.get("verbose", True))
 
     bridge = Bridge(config)
@@ -113,13 +144,18 @@ def _dry_run(config: dict, bridge: Bridge) -> int:
     from .utils import read_task
 
     try:
-        task = read_task()
+        task = read_task(config["project_name"])
     except (FileNotFoundError, ValueError) as exc:
-        log(f"ERROR: {exc}. Put the first task into sessions/next_task.txt", True)
+        log(
+            f"ERROR: {exc}. Put the first task into "
+            f"sessions/{config['project_name']}/next_task.txt",
+            True,
+        )
         return 1
 
     print("\n=== DRY RUN ===")
-    print(f"project      : {config.get('project_path')}")
+    print(f"project      : {config['project_name']}")
+    print(f"project path : {config.get('project_path')}")
     print(f"manager      : {config['manager']['type']}")
     print(f"worker       : {config['worker']['type']} -> {config['worker'].get('binary', '?')}")
     print(f"iterations   : {config.get('loop', {}).get('iterations', 0)}")

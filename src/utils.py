@@ -1,24 +1,54 @@
-"""Shared helpers: logging, session files, history."""
+"""Shared helpers: logging, per-project session files, history.
+
+Every session artefact lives under ``sessions/<project>/`` so that
+different projects (and their tasks/reports/state) never mix. The active
+project is set once at startup via ``set_active_project``.
+"""
 
 from __future__ import annotations
 
 import json
 import re
-import sys
 from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SESSION_DIR = ROOT / "sessions"
-REPORT_PATH = SESSION_DIR / "result_report.txt"
-TASK_PATH = SESSION_DIR / "next_task.txt"
-CONVERSATION_PATH = SESSION_DIR / "conversation_history.jsonl"
-REPORTS_DIR = SESSION_DIR / "reports"
-STATE_PATH = SESSION_DIR / "state.json"
+SESSIONS_ROOT = ROOT / "sessions"
+
+_ACTIVE_PROJECT = "default"
 
 
-def ensure_session_dir() -> None:
-    SESSION_DIR.mkdir(exist_ok=True)
+def set_active_project(name: str) -> None:
+    """Point all session helpers at the given project's folder."""
+    global _ACTIVE_PROJECT
+    _ACTIVE_PROJECT = slugify(name or "default")
+
+
+def active_project() -> str:
+    return _ACTIVE_PROJECT
+
+
+def slugify(text: str) -> str:
+    """Turn an arbitrary project name/path into a safe folder name."""
+    s = re.sub(r"[^A-Za-z0-9]+", "-", text.strip()).strip("-")
+    return s.lower() or "default"
+
+
+def project_dir(name: str | None = None) -> Path:
+    """Session folder for a project (defaults to the active project)."""
+    return SESSIONS_ROOT / slugify(name or _ACTIVE_PROJECT)
+
+
+def ensure_session_dir(name: str | None = None) -> Path:
+    d = project_dir(name)
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def reports_dir(name: str | None = None) -> Path:
+    d = project_dir(name) / "reports"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
 
 
 def log(msg: str, verbose: bool = True) -> None:
@@ -26,50 +56,59 @@ def log(msg: str, verbose: bool = True) -> None:
         print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
-def write_report(text: str, tag: str = "") -> Path:
-    """Write the latest report and also a tagged/timestamped copy under
-    ``sessions/reports/``.
+# --- report / task -------------------------------------------------------
 
-    When ``tag`` is given, the archived filename becomes
-    ``<tag>_<timestamp>.md`` so a session's reports group together.
-    Returns the archived report path.
-    """
-    ensure_session_dir()
-    REPORT_PATH.write_text(text, encoding="utf-8")
-    REPORTS_DIR.mkdir(exist_ok=True)
+
+def write_report(text: str, tag: str = "", name: str | None = None) -> Path:
+    """Write the latest report and a tagged/timestamped copy under the
+    project's ``reports/`` folder. Returns the archived path."""
+    d = ensure_session_dir(name)
+    (d / "result_report.txt").write_text(text, encoding="utf-8")
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     label = f"{tag}_" if tag else ""
-    timed_path = REPORTS_DIR / f"{label}report_{stamp}.md"
+    timed_path = reports_dir(name) / f"{label}report_{stamp}.md"
     timed_path.write_text(text, encoding="utf-8")
     return timed_path
 
 
-def write_task(text: str) -> None:
-    ensure_session_dir()
-    TASK_PATH.write_text(text, encoding="utf-8")
+def read_report(name: str | None = None) -> str:
+    return (project_dir(name) / "result_report.txt").read_text(encoding="utf-8")
 
 
-def read_task() -> str:
-    ensure_session_dir()
-    content = TASK_PATH.read_text(encoding="utf-8").strip()
+def write_task(text: str, name: str | None = None) -> None:
+    ensure_session_dir(name)
+    (project_dir(name) / "next_task.txt").write_text(text, encoding="utf-8")
+
+
+def read_task(name: str | None = None) -> str:
+    ensure_session_dir(name)
+    content = (project_dir(name) / "next_task.txt").read_text(encoding="utf-8").strip()
     if not content:
         raise ValueError("task file is empty")
     return content
 
 
-def append_history(role: str, content: str) -> None:
-    ensure_session_dir()
+# --- conversation history -------------------------------------------------
+
+
+def history_path(name: str | None = None) -> Path:
+    return project_dir(name) / "conversation_history.jsonl"
+
+
+def append_history(role: str, content: str, name: str | None = None) -> None:
+    p = history_path(name)
+    p.parent.mkdir(parents=True, exist_ok=True)
     entry = {"role": role, "ts": datetime.now().isoformat(), "content": content}
-    with open(CONVERSATION_PATH, "a", encoding="utf-8") as fh:
+    with open(p, "a", encoding="utf-8") as fh:
         fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
-def read_history() -> list[dict]:
-    ensure_session_dir()
-    if not CONVERSATION_PATH.exists():
+def read_history(name: str | None = None) -> list[dict]:
+    p = history_path(name)
+    if not p.exists():
         return []
     out: list[dict] = []
-    for line in CONVERSATION_PATH.read_text(encoding="utf-8").splitlines():
+    for line in p.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line:
             continue
@@ -80,10 +119,13 @@ def read_history() -> list[dict]:
     return out
 
 
-def clear_history() -> None:
-    ensure_session_dir()
-    if CONVERSATION_PATH.exists():
-        CONVERSATION_PATH.write_text("", encoding="utf-8")
+def clear_history(name: str | None = None) -> None:
+    p = history_path(name)
+    if p.exists():
+        p.write_text("", encoding="utf-8")
+
+
+# --- misc -----------------------------------------------------------------
 
 
 def is_done(text: str) -> bool:
@@ -92,21 +134,19 @@ def is_done(text: str) -> bool:
     return clean == "DONE"
 
 
-def save_state(payload: dict) -> None:
-    """Persist pipeline state (resume point) to ``sessions/state.json``."""
-    ensure_session_dir()
-    STATE_PATH.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
+def save_state(payload: dict, name: str | None = None) -> None:
+    """Persist pipeline state (resume point) under the project's session."""
+    d = ensure_session_dir(name)
+    (d / "state.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
 
 
-def load_state() -> dict:
-    """Load the last pipeline state; empty dict when absent/invalid."""
-    ensure_session_dir()
-    if not STATE_PATH.exists():
+def load_state(name: str | None = None) -> dict:
+    p = project_dir(name) / "state.json"
+    if not p.exists():
         return {}
     try:
-        return json.loads(STATE_PATH.read_text(encoding="utf-8"))
+        return json.loads(p.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return {}

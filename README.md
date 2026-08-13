@@ -77,58 +77,73 @@ way a small team would, but with agents.
 ```bash
 git clone https://github.com/<you>/agent-bridge.git
 cd agent-bridge
-cp configs/config.example.json configs/config.json
 ```
 
-Pick a ready-made setup from [`examples/`](examples/README.md) — API key,
-website, agent-to-agent, or manual:
+The config lives in [`configs/config.json`](configs/config.json) and can hold
+**multiple projects** at once — each with its own `manager`, `worker` and
+`loop` settings:
 
-```bash
-cp examples/api-manager.example.json configs/config.json   # API key
-cp examples/web-manager.example.json configs/config.json   # website only
-cp examples/agent-manager.example.json configs/config.json # agent↔agent
+```json
+{
+  "active_project": "my-app",
+  "projects": {
+    "my-app":   { "project_path": "D:/repos/my-app",   "manager": {"type": "api"},   "worker": {"type": "opencode"} },
+    "site-bot": { "project_path": "D:/repos/site-bot", "manager": {"type": "web"},    "worker": {"type": "opencode"} }
+  }
+}
 ```
 
-Or run the interactive wizard:
+Build it interactively (recommended) — it creates the config and can add more
+projects on later runs:
 
 ```bash
 python -m src --init
 ```
 
-Put your project path in `configs/config.json` and pick `manager.type` /
-`worker.type`. Secrets can be referenced as env vars thanks to `${VAR}`
-expansion:
+Or copy a working starter from [`configs/config.example.json`](configs/config.example.json)
+and edit. Secrets can be referenced as env vars thanks to `${VAR}` expansion:
 
 ```json
 {
-  "manager": { "type": "api", "api": { "api_key": "${OPENAI_API_KEY}" } },
-  "worker": { "type": "opencode" }
+  "active_project": "my-app",
+  "projects": {
+    "my-app": {
+      "project_path": "./my-app",
+      "manager": { "type": "api", "api": { "api_key": "${OPENAI_API_KEY}" } },
+      "worker": { "type": "opencode" }
+    }
+  }
 }
 ```
 
 ### 3. Run
 
+Select a project by name — its own manager/worker/loop and session folder are
+used automatically:
+
 ```bash
-python -m src --project /path/to/your/project --iterations 10
+python -m src my-app --iterations 10
 ```
 
-Or pass everything on the CLI — nothing to edit:
+Omit the name to use `active_project`. Or pass everything on the CLI —
+nothing to edit (name resolves the config, `--project` overrides the path):
 
 ```bash
-python -m src --project ./my-app \
+python -m src my-app \
+  --project /path/to/your/project \
   --manager api --worker opencode --iterations 10
 ```
 
 ### The `manual` workflow (no API, just a text editor)
 
 ```bash
-python -m src --project ./my-app --manager manual
+python -m src test-project --manager manual
 ```
 
-1. Write the first task in `sessions/next_task.txt`.
-2. The bridge runs the worker and writes a clean report to `sessions/result_report.txt`.
+1. Write the first task in `sessions/test-project/next_task.txt`.
+2. The bridge runs the worker and writes a clean report to `sessions/test-project/result_report.txt`.
 3. Paste that report into your manager (e.g. ChatGPT).
-4. Save the manager's reply as `sessions/next_task.txt`.
+4. Save the manager's reply as `sessions/test-project/next_task.txt`.
 5. Run again. Repeat.
 
 ---
@@ -137,43 +152,50 @@ python -m src --project ./my-app --manager manual
 
 Full example: [`configs/config.example.json`](configs/config.example.json)
 
+Top-level keys (any unrecognised keys in a project are ignored — unknown
+projects in the map are fine, they're simply not active):
+
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `project_path` | `""` | Target project directory |
-| `loop.iterations` | `0` | Max tasks (0 = run forever) |
-| `verbose` | `true` | Timestamped console logs |
-| `manager.type` | `manual` | `manual` \| `api` \| `web` \| `agent` |
-| `manager.system_prompt` | — | Instructions for the manager agent |
-| `manager.api.*` | — | `base_url`, `api_key`, `model`, `temperature`, `max_tokens` |
-| `manager.web.url` | chatgpt.com | Chat UI to automate |
-| `manager.web.headless` | `false` | Run the browser hidden |
-| `manager.agent.binary` | `opencode` | Manager CLI agent |
-| `worker.type` | `opencode` | `opencode` \| `generic` |
-| `worker.binary` | `opencode` | Worker command |
-| `worker.model` | — | Model for the worker (e.g. `provider/model`) |
-| `worker.extra_args` | `[]` | Extra args for the worker CLI |
-| `worker.timeout` | `1800` | Per-task timeout (seconds) |
+| `active_project` | first project | Which project runs when no name is given |
+| `projects.<name>.project_path` | `""` | Target project directory |
+| `projects.<name>.loop.iterations` | `0` | Max tasks (0 = run forever) |
+| `projects.<name>.verbose` | `true` | Timestamped console logs |
+| `projects.<name>.manager.type` | `manual` | `manual` \| `api` \| `web` \| `agent` |
+| `projects.<name>.manager.system_prompt` | — | Instructions for the manager agent |
+| `projects.<name>.manager.api.*` | — | `base_url`, `api_key`, `model`, `temperature`, `max_tokens` |
+| `projects.<name>.manager.web.url` | chatgpt.com | Chat UI to automate |
+| `projects.<name>.manager.web.headless` | `false` | Run the browser hidden |
+| `projects.<name>.manager.agent.binary` | `opencode` | Manager CLI agent |
+| `projects.<name>.worker.type` | `opencode` | `opencode` \| `generic` |
+| `projects.<name>.worker.binary` | `opencode` | Worker command |
+| `projects.<name>.worker.model` | — | Model for the worker (e.g. `provider/model`) |
+| `projects.<name>.worker.extra_args` | `[]` | Extra args for the worker CLI |
+| `projects.<name>.worker.timeout` | `1800` | Per-task timeout (seconds) |
+
+Each project's session files (task, report, history, state) live in their own
+folder under `sessions/`, so two projects never interfere.
 
 ### Manager types
 
-- **`manual`** — tasks come from `sessions/next_task.txt`. Zero deps, works everywhere.
+- **`manual`** — tasks come from `sessions/<project>/next_task.txt`. Zero deps, works everywhere.
 - **`api`** — any OpenAI-compatible chat API. Works with OpenAI, DeepSeek,
   OpenRouter, Ollama, local model servers… Keeps a rolling conversation
-  history in `sessions/conversation_history.jsonl`.
+  history in `sessions/<project>/conversation_history.jsonl`.
 - **`web`** — drives a chat website with Playwright. Ships presets for
   **ChatGPT** and **DeepSeek** (`manager.web.site = auto | chatgpt | deepseek`).
   One-time login, then fully automatic:
   ```bash
   pip install playwright && playwright install chromium
-  python -m src --project . --manager web --iterations 20          # ChatGPT
-  python -m src --project . --manager web --iterations 20          # set site in config
+  python -m src my-app --manager web --iterations 20          # ChatGPT
+  python -m src my-app --manager web --iterations 20          # set site in config
   ```
   If a site's UI changes, override the selectors in
   `manager.web.selectors` — no code changes needed.
 - **`agent`** — a second CLI agent is the manager. True agent↔agent, no
   vendored LLM in the loop:
   ```bash
-  python -m src --project . --manager agent --worker opencode
+  python -m src my-app --manager agent --worker opencode
   ```
 
 ### Worker types
@@ -185,37 +207,42 @@ Full example: [`configs/config.example.json`](configs/config.example.json)
 
 ---
 
-## Session files (everything is local)
+## Session files (everything is local, per project)
 
 ```
 sessions/
-  next_task.txt            ← the pending task (manual mode)
-  result_report.txt        ← latest report for the manager
-  reports/report_<ts>.md   ← timestamped report archive (*new*)
-  conversation_history.jsonl  ← rolling context for api manager
-  opencode_run_<code>.txt  ← raw worker transcripts
-  browser_profile/         ← persisted login for web mode
+  browser_profile/         ← persisted login for web mode (shared)
+  <project>/               ← one folder per project
+    next_task.txt            the pending task (manual mode)
+    result_report.txt        latest report for the manager
+    reports/report_<ts>.md   timestamped report archive
+    conversation_history.jsonl  rolling context for api manager
+    opencode_run_<code>.txt  raw worker transcripts
+    state.json               resume point for --resume
 ```
 
 ## CLI extras
 
 | Command | What it does |
 | --- | --- |
-| `--init` | Interactive wizard that builds `configs/config.json` for you |
-| `--project X --dry-run` | Show the config + pending task without invoking the worker |
+| `<name>` | Select a project defined in `configs/config.json` |
+| `--list-projects` | List the configured project names and exit |
+| `--init` | Interactive wizard that builds/extends `configs/config.json` |
+| `--project X` | Override the selected project's directory |
+| `--dry-run` | Show the config + pending task without invoking the worker |
 | `--git-check` | Append a `git status --short` / `git diff --stat` summary to each report |
-| `--resume` | Resume an interrupted run from `sessions/state.json` |
+| `--resume` | Resume an interrupted run from `sessions/<project>/state.json` |
 | `--max-report-len N` | Clip reports longer than `N` chars (0 = unlimited) |
 | `--clear-history` | Reset the api-manager conversation history |
 
 Examples:
 
 ```bash
-python -m src --init                                    # guided setup
-python -m src --project ./my-app --dry-run              # plan only, no agent run
-python -m src --project ./my-app --git-check            # reports include git impact
-python -m src --project ./my-app --resume               # continue after a crash
-python -m src --project ./my-app --max-report-len 8000  # keep reports short
+python -m src --list-projects                     # see configured projects
+python -m src test-project --dry-run              # plan only, no agent run
+python -m src test-project --git-check            # reports include git impact
+python -m src test-project --resume               # continue after a crash
+python -m src test-project --max-report-len 8000  # keep reports short
 ```
 
 The pipeline recognises `DONE` (or `DONE.` / trailing text) from **any**
@@ -226,14 +253,13 @@ manager — api, web, agent or manual — and stops cleanly.
 ```
 src/
   cli.py                CLI + config overrides
-  config.py             config loading, ${ENV} expansion
+  config.py             multi-project config loading, ${ENV} expansion
   orchestrator.py       the loop (Bridge)
-  init_wizard.py        interactive --init setup (*new*)
-  git_check.py          read-only git status/diff for reports (*new*)
-  utils.py              session files + history
+  init_wizard.py        interactive --init setup
+  git_check.py          read-only git status/diff for reports
+  utils.py              per-project session files + history
   managers/
-    base.py             Manager protocol
-    manual.py           file-based
+    base.py             Manager protocol + manual (file-based)
     api.py              OpenAI-compatible API
     web.py              Playwright browser automation (ChatGPT/DeepSeek presets)
     agent.py            another agent's CLI
@@ -266,8 +292,8 @@ Then register it in `managers/__init__.py` / `workers/__init__.py`.
 - [x] Interactive `--init` wizard
 - [x] `--dry-run` planning mode
 - [x] `--git-check` report enrichment
-- [x] Timestamped report archive in `sessions/reports/`
-- [ ] Persist sessions per-project in `~/.agent-bridge/`
+- [x] Timestamped report archive in `sessions/<project>/reports/`
+- [x] Per-project sessions (`sessions/<project>/`) and multi-project config
 - [ ] `run.py` console entry point (no `-m src`)
 - [ ] Test suite (pytest) for managers/workers
 

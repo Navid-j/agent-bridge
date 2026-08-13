@@ -29,6 +29,7 @@ from .utils import (
     load_state,
     log,
     save_state,
+    set_active_project,
     write_report,
 )
 from .workers import build_worker
@@ -40,6 +41,7 @@ class Bridge:
 
     def __init__(self, config: dict) -> None:
         self.config = config
+        set_active_project(config.get("project_name", "default"))
         self.worker = build_worker(config)
         self.manager = build_manager(config)
         self.verbose = config.get("verbose", True)
@@ -92,15 +94,15 @@ class Bridge:
 
         Behaviour depends on the manager type:
 
-        * **Manual manager** — the user edits ``sessions/next_task.txt``
-          between runs, so exactly one task is executed per invocation and
-          control returns to the shell.
+        * **Manual manager** — the user edits
+          ``sessions/<project>/next_task.txt`` between runs, so exactly one
+          task is executed per invocation and control returns to the shell.
         * **Auto managers (api / web / agent)** — the loop continues
           in-process: the manager's reply becomes the next task until it
           returns ``DONE`` or the iteration limit is reached.
 
         With ``loop.resume`` enabled, an interrupted run is picked up from
-        the task stored in ``sessions/state.json``.
+        the task stored in ``sessions/<project>/state.json``.
         """
         from .managers.base import ManualManager
 
@@ -132,8 +134,9 @@ class Bridge:
 
             if isinstance(self.manager, ManualManager):
                 log(
-                    "manual mode: paste sessions/result_report.txt into your "
-                    "manager, save its reply as sessions/next_task.txt, re-run.",
+                    f"manual mode: paste sessions/{self.config['project_name']}"
+                    "/result_report.txt into your manager, save its reply as "
+                    f"sessions/{self.config['project_name']}/next_task.txt, re-run.",
                     self.verbose,
                 )
                 break

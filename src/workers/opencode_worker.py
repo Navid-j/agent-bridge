@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import subprocess
 
-from ..utils import SESSION_DIR, log
+from ..utils import ensure_session_dir, log
 from .base import Worker, WorkerResult
 
 
@@ -53,8 +53,8 @@ class OpenCodeWorker(Worker):
         )
 
     def _save_transcript(self, exit_code: int, transcript: str) -> None:
-        SESSION_DIR.mkdir(exist_ok=True)
-        path = SESSION_DIR / f"opencode_run_{exit_code}.txt"
+        d = ensure_session_dir()
+        path = d / f"opencode_run_{exit_code}.txt"
         path.write_text(transcript, encoding="utf-8")
         log(f"transcript saved: {path}", self.verbose)
 
